@@ -3,8 +3,6 @@ using Cadastre.Data.Enumerations;
 using Cadastre.DataProcessor.ExportDtos;
 using Newtonsoft.Json;
 using System.Globalization;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Xml.Serialization;
 
@@ -14,62 +12,68 @@ namespace Cadastre.DataProcessor
     {
         public static string ExportPropertiesWithOwners(CadastreContext dbContext)
         {
-            DateTime date = DateTime.ParseExact("01/01/2000", "dd/MM/yyyy", CultureInfo.InvariantCulture);
-            var properties = dbContext.Properties
-                .Where(p => p.DateOfAcquisition >= date)
+            DateTime date = DateTime.Parse("01/01/2000");
+
+            var properties = dbContext.Properties.Where(p => p.DateOfAcquisition >= date)
                 .OrderByDescending(p => p.DateOfAcquisition)
                 .ThenBy(p => p.PropertyIdentifier)
-                .ToList()
                 .Select(p => new
                 {
-                    PropertyIdentifier = p.PropertyIdentifier,
-                    Area = p.Area,
-                    Address = p.Address,
+                    //"PropertyIdentifier": "SF-10000.004.002.002",
+                    p.PropertyIdentifier,
+                    //"Area": 150,
+                    p.Area,
+                    //"Address": "Penthouse 2, 55 High Tower Road, Sofia",
+                    p.Address,
+                    //"DateOfAcquisition": "10/02/2023",
                     DateOfAcquisition = p.DateOfAcquisition.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture),
-                    Owners = p.PropertiesCitizens
-                    .OrderBy(pc => pc.Citizen.LastName)
-                    .ToArray()
-                    .Select(ps => new
+                    //"Owners": [
+                    Owners = p.PropertiesCitizens.Select(c => new
                     {
-                        LastName = ps.Citizen.LastName,
-                        MaritalStatus = ps.Citizen.MaritalStatus.ToString()
+                        //"LastName": "Petrov",
+                        c.Citizen.LastName,
+                        //"MaritalStatus": "Married"
+                        MaritalStatus=c.Citizen.MaritalStatus.ToString()
+
                     })
-
+                    .OrderBy(c=>c.LastName)
                     .ToArray()
-
                 })
+                .ToArray();
 
-                .ToList();
-            var resul = JsonConvert.SerializeObject(properties, Formatting.Indented);
-
-            return resul;
+            return JsonSerializeText(properties);
         }
 
         public static string ExportFilteredPropertiesWithDistrict(CadastreContext dbContext)
         {
-            StringBuilder sb = new StringBuilder();
-
             var properties = dbContext.Properties.Where(p => p.Area >= 100)
                 .OrderByDescending(p => p.Area)
                 .ThenBy(p => p.DateOfAcquisition)
-                .Select(p => new PropertyExportDto()
+                .Select(p => new ExportPropertyDto
                 {
                     PostalCode = p.District.PostalCode,
                     PropertyIdentifier = p.PropertyIdentifier,
-                    Area=p.Area,
-                    DateOfAcquisition=p.DateOfAcquisition.ToString("dd/MM/yyyy" ,CultureInfo.InvariantCulture)
-                })
-                .ToArray();
+                    Area = p.Area,
+                    DateOfAcquisition = p.DateOfAcquisition.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)
+                }).ToArray();
 
-            XmlSerializer serializer =new XmlSerializer(typeof(PropertyExportDto[]),new XmlRootAttribute("Properties"));
+            return XmlSerializeText(properties, "Properties");
+        }
 
-            XmlSerializerNamespaces xmlns = new XmlSerializerNamespaces();
+        private static string JsonSerializeText(object obj)
+        {
+            var result = JsonConvert.SerializeObject(obj, Formatting.Indented);
+            return result;
+        }
+        private static string XmlSerializeText<T>(ICollection<T> collection, string rootAttribute)
+        {
+            StringBuilder sb = new StringBuilder();
 
-            xmlns.Add(string.Empty,string.Empty);
-
-            using StringWriter writer = new StringWriter(sb);
-
-            serializer.Serialize(writer, properties,xmlns);
+            XmlSerializer serializer = new XmlSerializer(typeof(List<T>), new XmlRootAttribute(rootAttribute));
+            XmlSerializerNamespaces namespaces = new XmlSerializerNamespaces();
+            namespaces.Add(string.Empty, string.Empty);
+            using StringWriter sw = new StringWriter(sb);
+            serializer.Serialize(sw, new List<T>(collection), namespaces);
 
             return sb.ToString().TrimEnd();
         }
