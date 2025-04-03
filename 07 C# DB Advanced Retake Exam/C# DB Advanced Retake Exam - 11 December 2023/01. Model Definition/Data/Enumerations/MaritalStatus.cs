@@ -1,6 +1,6 @@
 ﻿namespace Cadastre.Data.Enumerations
 {
-    public enum  MaritalStatus
+    public enum MaritalStatus
     {
         Unmarried = 0,
         Married,

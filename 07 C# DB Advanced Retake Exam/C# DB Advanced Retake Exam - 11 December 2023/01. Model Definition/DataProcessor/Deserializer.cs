@@ -1,7 +1,10 @@
 ﻿namespace Cadastre.DataProcessor
 {
     using Cadastre.Data;
+    using Newtonsoft.Json;
     using System.ComponentModel.DataAnnotations;
+    using System.Text;
+    using System.Xml.Serialization;
 
     public class Deserializer
     {
@@ -14,12 +17,16 @@
 
         public static string ImportDistricts(CadastreContext dbContext, string xmlDocument)
         {
-            throw new NotImplementedException();
+            StringBuilder sb = new StringBuilder();
+
+            return sb.ToString().TrimEnd();
         }
 
         public static string ImportCitizens(CadastreContext dbContext, string jsonDocument)
         {
-            throw new NotImplementedException();
+            StringBuilder sb = new StringBuilder();
+
+            return sb.ToString().TrimEnd();
         }
 
         private static bool IsValid(object dto)
@@ -28,6 +35,28 @@
             var validationResult = new List<ValidationResult>();
 
             return Validator.TryValidateObject(dto, validationContext, validationResult, true);
+        }
+        private static T? ImportDtoXml<T>(string xmlString, string xmlRoot)
+        {
+            XmlRootAttribute xmlRootAttribute = new XmlRootAttribute(xmlRoot);
+
+            XmlSerializer serializer = new XmlSerializer(typeof(T), xmlRootAttribute);
+
+            using StringReader reader = new StringReader(xmlString);
+
+            T? result = (T?)serializer.Deserialize(reader);
+            return result;
+
+
+        }
+
+        private static T? ImportDtoJson<T>(string jsonString)
+        {
+
+            T? result = JsonConvert.DeserializeObject<T>(jsonString);
+
+
+            return result;
         }
     }
 }

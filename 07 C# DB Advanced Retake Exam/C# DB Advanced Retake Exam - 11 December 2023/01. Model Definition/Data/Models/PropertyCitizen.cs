@@ -5,7 +5,7 @@ namespace Cadastre.Data.Models
 {
     public class PropertyCitizen
     {
-        //        •	PropertyId – integer, Primary Key, foreign key(required)
+        //•	PropertyId – integer, Primary Key, foreign key(required)
         [Required]
         public int PropertyId { get; set; }
 

@@ -1,22 +1,25 @@
 ﻿using Cadastre.Data.Enumerations;
 using System.ComponentModel.DataAnnotations;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace Cadastre.Data.Models
 {
     public class Citizen
     {
-        //        •	Id – integer, Primary Key
+        //•	Id – integer, Primary Key
         [Key]
         public int Id { get; set; }
 
         //•	FirstName – text with length[2, 30] (required)
         [Required]
-        [StringLength(30)]
+        [MinLength(2)]
+        [MaxLength(30)]
         public string FirstName { get; set; } = null!;
 
         //•	LastName – text with length[2, 30] (required)
         [Required]
-        [StringLength(30)]
+        [MinLength(2)]
+        [MaxLength(30)]
         public string LastName { get; set; } = null!;
 
         //•	BirthDate – DateTime(required)
@@ -28,7 +31,7 @@ namespace Cadastre.Data.Models
         public MaritalStatus MaritalStatus { get; set; }
 
         //•	PropertiesCitizens - collection of type PropertyCitizen
-        public List<PropertyCitizen> PropertiesCitizens { get; set; }= new List<PropertyCitizen>();
+        public ICollection<PropertyCitizen> PropertiesCitizens { get; set; } = new HashSet<PropertyCitizen>();
 
     }
 }
