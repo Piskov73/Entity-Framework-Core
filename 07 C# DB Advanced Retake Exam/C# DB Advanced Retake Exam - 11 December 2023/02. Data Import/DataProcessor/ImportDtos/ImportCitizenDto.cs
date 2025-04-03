@@ -1,15 +1,11 @@
 ﻿using Cadastre.Data.Enumerations;
+using Cadastre.Data.Models;
 using System.ComponentModel.DataAnnotations;
-using static System.Net.Mime.MediaTypeNames;
 
-namespace Cadastre.Data.Models
+namespace Cadastre.DataProcessor.ImportDtos
 {
-    public class Citizen
+    public class ImportCitizenDto
     {
-        //•	Id – integer, Primary Key
-        [Key]
-        public int Id { get; set; }
-
         //•	FirstName – text with length[2, 30] (required)
         [Required]
         [MinLength(2)]
@@ -24,14 +20,14 @@ namespace Cadastre.Data.Models
 
         //•	BirthDate – DateTime(required)
         [Required]
-        public DateTime BirthDate { get; set; }
+        [MaxLength(10)]
+        public string BirthDate { get; set; } = null!;
 
         //•	MaritalStatus - MaritalStatus enum (Unmarried = 0, Married, Divorced, Widowed) (required)
         [Required]
-        public MaritalStatus MaritalStatus { get; set; }
+        public string MaritalStatus { get; set; } = null!;
 
         //•	PropertiesCitizens - collection of type PropertyCitizen
-        public ICollection<PropertyCitizen> PropertiesCitizens { get; set; } = new HashSet<PropertyCitizen>();
-
+        public int[] Properties { get; set; } = new int[] { };
     }
 }

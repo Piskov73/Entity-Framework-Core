@@ -14,7 +14,7 @@
             var projectDir = GetProjectDirectory();
 
             ImportEntities(dbContext, projectDir + @"Datasets/", projectDir + @"ImportResults/");
-            //ExportEntities(dbContext, projectDir + @"ExportResults/");
+            ExportEntities(dbContext, projectDir + @"ExportResults/");
 
             using (var transaction = dbContext.Database.BeginTransaction())
             {
@@ -67,21 +67,21 @@
 
         private static void ResetDatabase(CadastreContext dbContext, bool shouldDropDatabase = false)
         {
-            if (shouldDropDatabase)
+            if(shouldDropDatabase)
             {
                 dbContext.Database.EnsureDeleted();
             }
 
-            if (dbContext.Database.EnsureCreated())
+            if(dbContext.Database.EnsureCreated())
             {
                 return;
             }
 
-            var disableIntegrityChecksQuery =
+            var disableIntegrityChecksQuery = 
                 "EXEC sp_MSforeachtable @command1='ALTER TABLE ? NOCHECK CONSTRAINT ALL'";
             dbContext.Database.ExecuteSqlRaw(disableIntegrityChecksQuery);
 
-            var deleteRowsQuery =
+            var deleteRowsQuery = 
                 "EXEC sp_MSforeachtable @command1='SET QUOTED_IDENTIFIER ON;DELETE FROM ?'";
             dbContext.Database.ExecuteSqlRaw(deleteRowsQuery);
 

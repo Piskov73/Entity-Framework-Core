@@ -7,6 +7,7 @@
     using Newtonsoft.Json;
     using System.ComponentModel.DataAnnotations;
     using System.Globalization;
+    using System.Net;
     using System.Text;
     using System.Xml.Serialization;
 
@@ -23,82 +24,91 @@
         {
             StringBuilder sb = new StringBuilder();
 
-            XmlSerializer serializer = new XmlSerializer(typeof(DistrictImportDto[]), new XmlRootAttribute("Districts"));
-            StringReader xmlReader = new StringReader(xmlDocument);
-            DistrictImportDto[]? distructsDtos = serializer.Deserialize(xmlReader) as DistrictImportDto[];
+            var districtsDB = dbContext.Districts.ToHashSet();
+            var propertiesDB = dbContext.Properties.ToHashSet();
 
-            List<District> districts = new List<District>();
+            var districtsDto = ImportDtoXml<ImportDistrictDto[]>(xmlDocument, "Districts");
 
-            foreach (DistrictImportDto dto in distructsDtos)
+            if (districtsDto == null)
             {
-                if (!IsValid(dto))
+                return "";
+            }
+
+            var districts = new List<District>();
+
+            foreach (var dDto in districtsDto)
+            {
+                if (!IsValid(dDto))
                 {
                     sb.AppendLine(ErrorMessage);
                     continue;
                 }
 
-                if (dbContext.Districts.Any(d => d.Name == dto.Name) || districts.Any(d => d.Name == dto.Name))
-                {
-                    continue;
-                }
-
-                if (!Enum.TryParse<Region>(dto.Region, true, out Region region))
+                if (districtsDB.Any(d => d.Name == dDto.Name) || districts.Any(d => d.Name == dDto.Name))
                 {
                     sb.AppendLine(ErrorMessage);
                     continue;
                 }
 
-                District district = new District()
+                if (!Enum.TryParse<Region>(dDto.Region, true, out var region))
                 {
-                    Name = dto.Name,
-                    PostalCode = dto.PostalCode,
+                    sb.AppendLine(ErrorMessage);
+                    continue;
+                }
+
+                District district = new District
+                {
+                    Name = dDto.Name,
+                    PostalCode = dDto.PostalCode,
                     Region = region
                 };
 
-                foreach (var propertyImport in dto.Properties)
+                foreach (var pDto in dDto.Properties)
                 {
-                    if (!IsValid(propertyImport))
+                    if (!IsValid(pDto))
                     {
                         sb.AppendLine(ErrorMessage);
                         continue;
                     }
 
-                    if (!DateTime.TryParseExact(propertyImport.DateOfAcquisition
-                        , "dd/MM/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None
-                        , out DateTime date))
+                    if (district.Properties.Any(p => p.PropertyIdentifier == pDto.PropertyIdentifier
+                    || propertiesDB.Any(p => p.PropertyIdentifier == pDto.PropertyIdentifier)))
                     {
                         sb.AppendLine(ErrorMessage);
                         continue;
                     }
 
-                    if (dbContext.Properties.Any(p => p.PropertyIdentifier == propertyImport.PropertyIdentifier)
-                        || districts.Any(d => d.Properties.Any(p => p.PropertyIdentifier == propertyImport.PropertyIdentifier)))
-                    {
-                        continue;
-                    }
-
-                    if (dbContext.Properties.Any(p => p.Address == propertyImport.Address)
-                       || districts.Any(d => d.Properties.Any(p => p.Address == propertyImport.Address)))
+                    if (district.Properties.Any(p => p.Address == pDto.Address
+                    || propertiesDB.Any(p => p.Address == pDto.Address)))
                     {
                         sb.AppendLine(ErrorMessage);
                         continue;
                     }
-                    Property property = new Property()
+
+                    if (!DateTime.TryParseExact(pDto.DateOfAcquisition, "dd/MM/yyyy"
+                        , CultureInfo.InvariantCulture,DateTimeStyles.None,out var date))
                     {
-                        PropertyIdentifier = propertyImport.PropertyIdentifier,
-                        Area = propertyImport.Area,
-                        Details = propertyImport.Details,
-                        Address=propertyImport.Address,
+                        sb.AppendLine(ErrorMessage);
+                        continue;
+                    }
+
+                    Property property = new Property
+                    {
+                        PropertyIdentifier=pDto.PropertyIdentifier,
+                        Area=pDto.Area,
+                        Details=pDto.Details,
+                        Address=pDto.Address,
                         DateOfAcquisition=date,
                         District=district
-                        
                     };
+
                     district.Properties.Add(property);
 
                 }
-                districts.Add(district);
-                sb.AppendLine(string.Format(SuccessfullyImportedDistrict,district.Name,district.Properties.Count));
 
+                districts.Add(district);
+                //Successfully imported district - {districtName} with {propertiesCount} properties.
+                sb.AppendLine(string.Format(SuccessfullyImportedDistrict,district.Name,district.Properties.Count));
             }
 
             dbContext.Districts.AddRange(districts);
@@ -111,58 +121,70 @@
         {
             StringBuilder sb = new StringBuilder();
 
-            CitizensImportDto[]? citizensDtos= JsonConvert.DeserializeObject<CitizensImportDto[]> (jsonDocument);
-
-            List <Citizen> citizens=new List<Citizen> ();
-            List<int> validPropertyId=dbContext.Properties.Select(p=>p.Id).ToList();
-
-            foreach (var dto in citizensDtos)
+            var citizensDto = ImportDtoJson<ImportCitizenDto[]>(jsonDocument);
+            if (citizensDto == null)
             {
-                if (!IsValid(dto))
+                return "";
+            }
+
+            var citizens =new  List<Citizen>();
+
+            var validpropertisId = dbContext.Properties.Select(p => p.Id).ToHashSet();
+
+            foreach (var cDto in citizensDto)
+            {
+                if (!IsValid(cDto))
+                {
+                    sb.AppendLine(ErrorMessage);
+                    continue;
+                }
+                if (!DateTime.TryParseExact(cDto.BirthDate, "dd-MM-yyyy",CultureInfo.InvariantCulture
+                    ,DateTimeStyles.None,out var birthDate))
                 {
                     sb.AppendLine(ErrorMessage);
                     continue;
                 }
 
-                if (!DateTime.TryParseExact(dto.BirthDate, "dd-MM-yyyy",CultureInfo.InvariantCulture
-                    ,DateTimeStyles.None,out DateTime date))
+                if (!Enum.TryParse<MaritalStatus>(cDto.MaritalStatus,true,out var maritalStatus))
                 {
                     sb.AppendLine(ErrorMessage);
                     continue;
                 }
 
-                if(!Enum.TryParse<MaritalStatus>(dto.MaritalStatus,true,out MaritalStatus result))
+                Citizen citizen = new Citizen
                 {
-                    continue;
-                }
-                Citizen citizen= new Citizen()
-                {
-                    FirstName=dto.FirstName,
-                    LastName=dto.LastName,
-                    BirthDate=date,
-                    MaritalStatus=result,
+                    FirstName=cDto.FirstName,
+                    LastName=cDto.LastName,
+                    BirthDate=birthDate,
+                    MaritalStatus=maritalStatus
                 };
-                foreach (var pId in dto.Properties)
+
+                foreach (var id in cDto.Properties.Distinct())
                 {
-                    if (!validPropertyId.Contains(pId))
+                    if (!validpropertisId.Contains(id))
                     {
                         sb.AppendLine(ErrorMessage);
-                        continue;   
+                        continue;
                     }
-                    PropertyCitizen propertyCitizen = new PropertyCitizen()
+
+                    PropertyCitizen propertyCitizen = new PropertyCitizen
                     {
-                        PropertyId=pId,
+                        PropertyId=id,
                         Citizen=citizen
                     };
+
                     citizen.PropertiesCitizens.Add(propertyCitizen);
                 }
 
                 citizens.Add(citizen);
-                sb.AppendLine(string.Format(SuccessfullyImportedCitizen,citizen.FirstName,citizen.LastName,citizen.PropertiesCitizens.Count));
 
+                //Successfully imported citizen - {citizenFirstName} {citizenLastName} with {propertiesCount} properties.
+                sb.AppendLine(string.Format(SuccessfullyImportedCitizen,citizen.FirstName
+                    ,citizen.LastName,citizen.PropertiesCitizens.Count));
             }
-            dbContext.AddRange(citizens);
+            dbContext.Citizens.AddRange(citizens);
             dbContext.SaveChanges();
+
             return sb.ToString().TrimEnd();
         }
 
@@ -172,6 +194,28 @@
             var validationResult = new List<ValidationResult>();
 
             return Validator.TryValidateObject(dto, validationContext, validationResult, true);
+        }
+        private static T? ImportDtoXml<T>(string xmlString, string xmlRoot)
+        {
+            XmlRootAttribute xmlRootAttribute = new XmlRootAttribute(xmlRoot);
+
+            XmlSerializer serializer = new XmlSerializer(typeof(T), xmlRootAttribute);
+
+            using StringReader reader = new StringReader(xmlString);
+
+            T? result = (T?)serializer.Deserialize(reader);
+            return result;
+
+
+        }
+
+        private static T? ImportDtoJson<T>(string jsonString)
+        {
+
+            T? result = JsonConvert.DeserializeObject<T>(jsonString);
+
+
+            return result;
         }
     }
 }
